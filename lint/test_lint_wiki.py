@@ -98,3 +98,27 @@ def test_uncited_source_warns(tmp_path):
     _, viol, warn = scan_case(tmp_path)
     assert viol == []
     assert any("draft.md" in w for w in warn)
+
+
+# ---- 勾稽闭合 ----
+
+def test_closure_ok_passes(tmp_path):
+    _write(tmp_path / "_md" / "a.md", "x")
+    _write(tmp_path / "wiki" / "p.md", "> [!check] 128,205 + 128,205 + 25,641 == 282,051\n")
+    _, viol, _ = scan_case(tmp_path)
+    assert viol == []
+
+
+def test_closure_mismatch_flagged(tmp_path):
+    _write(tmp_path / "_md" / "a.md", "x")
+    _write(tmp_path / "wiki" / "p.md", "> [!check] 1,000 + 1 == 1,002\n")
+    _, viol, _ = scan_case(tmp_path)
+    assert any("勾稽不符" in v for v in viol)
+
+
+def test_closure_ignores_trailing_comment(tmp_path):
+    _write(tmp_path / "_md" / "a.md", "x")
+    _write(tmp_path / "wiki" / "p.md",
+           "> [!check] 1,749,287 + 53,824 == 1,803,111 （增资前+新增=增资后）\n")
+    _, viol, _ = scan_case(tmp_path)
+    assert viol == []

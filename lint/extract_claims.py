@@ -17,13 +17,41 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from lint_wiki import ANCHOR_RE  # noqa: E402
+from lint_wiki import ANCHOR_RE, SPLIT_RE  # noqa: E402
+from _normalize import norm, norm_with_map  # noqa: E402
 
 _LEAD = re.compile(r"^\s*(?:[-*+]\s+)?")  # 列表项前导符
 
 
+def _context(root: Path, src: str, quote: str, cache: dict,
+             window: int = 120) -> str:
+    """在源文件里定位引文，返回其前后各约 window 字的上下文窗口（折叠空白）。
+    判官靠它判蕴含——既不上下文饿死，又不喂全文。定位失败返回空串。"""
+    sp = root / src
+    if not sp.is_file():
+        return ""
+    if sp not in cache:
+        cache[sp] = norm_with_map(sp.read_text(encoding="utf-8"))
+        cache[(sp, "raw")] = sp.read_text(encoding="utf-8")
+    nsrc, idxmap = cache[sp]
+    raw = cache[(sp, "raw")]
+    frags = [f for f in SPLIT_RE.split(quote) if f.strip()]
+    if not frags:
+        return ""
+    anchor_frag = max(frags, key=len)  # 用最长片段定位最稳
+    nq = norm(anchor_frag)
+    p = nsrc.find(nq)
+    if p < 0 or not nq:
+        return ""
+    raw_start = idxmap[p]
+    raw_end = idxmap[min(p + len(nq) - 1, len(idxmap) - 1)] + 1
+    ctx = raw[max(0, raw_start - window): raw_end + window]
+    return re.sub(r"\s+", " ", ctx).strip()
+
+
 def get_pairs(root: Path) -> list[dict]:
     wiki = root / "wiki"
+    cache: dict = {}
     pairs: list[dict] = []
     for md in sorted(wiki.rglob("*.md")):
         page = md.relative_to(root).as_posix()
@@ -41,6 +69,7 @@ def get_pairs(root: Path) -> list[dict]:
                     "claim": claim,
                     "source": src.strip(),
                     "quote": quote.strip(),
+                    "context": _context(root, src.strip(), quote.strip(), cache),
                 })
     return pairs
 

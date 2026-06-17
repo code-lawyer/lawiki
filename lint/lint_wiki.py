@@ -19,28 +19,21 @@
 
 用法：python lint_wiki.py <案件根目录>
 """
+import ast
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from _normalize import norm as _norm  # noqa: E402
 
 ANCHOR_RE = re.compile(r"〔来源:\s*(.+?)：「(.+?)」〕")
 WIKILINK_RE = re.compile(r"\[\[([^\]\n]+?)\]\]")
 SPLIT_RE = re.compile(r"…+|\.\.\.+")
 DATE_RE = re.compile(r"(\d{4})\s*年(?:\s*(\d{1,2})\s*月)?(?:\s*(\d{1,2})\s*日)?")
 ALIASES_RE = re.compile(r"aliases:\s*\[(.*?)\]")
-
-# 归一化"格式噪声"——保留数字与文字精确。
-_PUNCT = str.maketrans({
-    "，": ",", "（": "(", "）": ")", "：": ":", "；": ";",
-    "“": '"', "”": '"', "‘": "'", "’": "'",
-    "－": "-", "—": "-", "–": "-", "　": "",
-})
-_DROP = re.compile(r"[\s,|*#>`~_]")
-_TAG = re.compile(r"<[^>]+>")  # HTML 标签
-
-
-def _norm(s: str) -> str:
-    return _DROP.sub("", _TAG.sub("", s.translate(_PUNCT)))
+CHECK_RE = re.compile(r">\s*\[!check\]\s*(.+)")
+_NUM_PUNCT = str.maketrans({"，": ",", "＋": "+", "－": "-", "×": "*", "＝": "="})
 
 
 def _fragments(snippet: str) -> list[str]:
@@ -144,6 +137,49 @@ def _check_coverage(root: Path, cited: set[str]) -> list[str]:
     return warnings
 
 
+def _ev(n):  # 受限算术求值（只许 + - * 与数字，绝不 eval）
+    if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):
+        return n.value
+    if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.Add, ast.Sub, ast.Mult)):
+        l, r = _ev(n.left), _ev(n.right)
+        return l + r if isinstance(n.op, ast.Add) else (l - r if isinstance(n.op, ast.Sub) else l * r)
+    if isinstance(n, ast.UnaryOp) and isinstance(n.op, (ast.UAdd, ast.USub)):
+        v = _ev(n.operand)
+        return v if isinstance(n.op, ast.UAdd) else -v
+    raise ValueError("不允许的表达式")
+
+
+def _safe_eval(expr: str) -> float:
+    return _ev(ast.parse(expr.replace(",", "").strip(), mode="eval").body)
+
+
+def _check_closures(root: Path, wiki: Path) -> list[str]:
+    """校验 `> [!check] a + b == c` 勾稽断言：解析数字、做加减乘、核等式。"""
+    violations: list[str] = []
+    for md in sorted(wiki.rglob("*.md")):
+        where = md.relative_to(root).as_posix()
+        for line in md.read_text(encoding="utf-8").splitlines():
+            m = CHECK_RE.search(line)
+            if not m:
+                continue
+            raw = m.group(1).strip()
+            # 取算术前缀（数字/逗号/+-*()/空格/==），其后中文说明自动排除
+            m2 = re.match(r"\s*([0-9,\s+\-*().]+==[0-9,\s+\-*().]+)",
+                          raw.translate(_NUM_PUNCT))
+            if not m2:
+                violations.append(f"[勾稽无法解析] {where}\n          {raw}")
+                continue
+            try:
+                left, right = (_safe_eval(p) for p in m2.group(1).split("=="))
+            except Exception as e:
+                violations.append(f"[勾稽无法解析] {where}\n          {raw}  （{e}）")
+                continue
+            if abs(left - right) > 1e-6:
+                violations.append(
+                    f"[勾稽不符] {where}\n          {raw}\n          左={left:g} ≠ 右={right:g}")
+    return violations
+
+
 def scan_case(root: Path) -> tuple[int, list[str], list[str]]:
     """返回 (锚点总数, 违规列表, 警告列表)。纯函数，便于测试。"""
     wiki = root / "wiki"
@@ -156,6 +192,7 @@ def scan_case(root: Path) -> tuple[int, list[str], list[str]]:
     violations = anchor_viol
     violations += _check_deadlinks(root, wiki, names)
     violations += _check_timeline_order(root, wiki)
+    violations += _check_closures(root, wiki)
     warnings = _check_coverage(root, cited)
     return total, violations, warnings
 
