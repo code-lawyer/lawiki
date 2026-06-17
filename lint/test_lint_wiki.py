@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""lint 回归测试：锁住"归一化只消除格式噪声、绝不放过真错"这条底线。"""
+"""lint 回归测试：锁住"归一化只消格式噪声、绝不放过真错"，并覆盖 Tier-A 各检查。"""
 import sys
 from pathlib import Path
 
@@ -7,54 +7,94 @@ sys.path.insert(0, str(Path(__file__).parent))
 from lint_wiki import scan_case  # noqa: E402
 
 
-def _case(tmp_path: Path, source: str, anchor_snippet: str,
-          rel: str = "_md/a.md") -> Path:
-    (tmp_path / "_md").mkdir(parents=True, exist_ok=True)
-    (tmp_path / rel).write_text(source, encoding="utf-8")
-    wiki = tmp_path / "wiki"
-    wiki.mkdir()
-    (wiki / "p.md").write_text(
-        f"- 事实 〔来源: {rel}：「{anchor_snippet}」〕\n", encoding="utf-8")
+def _write(p: Path, text: str) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text, encoding="utf-8")
+
+
+def _anchor_case(tmp_path: Path, source: str, snippet: str,
+                 rel: str = "_md/a.md") -> Path:
+    _write(tmp_path / rel, source)
+    _write(tmp_path / "wiki" / "p.md",
+           f"- 事实 〔来源: {rel}：「{snippet}」〕\n")
     return tmp_path
 
 
+# ---- 锚点存在 ----
+
 def test_exact_match_passes(tmp_path):
-    root = _case(tmp_path, "甲向乙借款500,000元。", "甲向乙借款500,000元")
-    total, viol = scan_case(root)
-    assert total == 1 and viol == []
+    _, viol, _ = scan_case(_anchor_case(tmp_path, "甲向乙借款500,000元。", "甲向乙借款500,000元"))
+    assert viol == []
 
 
 def test_wrong_number_is_flagged(tmp_path):
-    # 真错：金额一位不同，必须被抓出
-    root = _case(tmp_path, "甲向乙借款500,000元。", "甲向乙借款500,001元")
-    total, viol = scan_case(root)
+    _, viol, _ = scan_case(_anchor_case(tmp_path, "甲向乙借款500,000元。", "甲向乙借款500,001元"))
     assert len(viol) == 1
 
 
 def test_formatting_noise_passes(tmp_path):
-    # 空格/换行/全角逗号/markdown 粗体/表格管道/HTML 标签都是噪声，不应误报
-    source = '| **甲** 向乙\n借款 500，000 元 <td>（RMB）</td> |'
-    root = _case(tmp_path, source, "甲向乙借款500,000元（RMB）")
-    total, viol = scan_case(root)
+    src = '| **甲** 向乙\n借款 500，000 元 <td>（RMB）</td> |'
+    _, viol, _ = scan_case(_anchor_case(tmp_path, src, "甲向乙借款500,000元（RMB）"))
     assert viol == []
 
 
 def test_ellipsis_bridges_gap(tmp_path):
-    root = _case(tmp_path, "甲方……中间很多字……乙方签字。", "甲方…乙方签字")
-    total, viol = scan_case(root)
+    _, viol, _ = scan_case(_anchor_case(tmp_path, "甲方……中间很多字……乙方签字。", "甲方…乙方签字"))
     assert viol == []
 
 
-def test_ordered_fragments_out_of_order_is_flagged(tmp_path):
-    # 片段在源文里存在但顺序相反 → 视为不符（顺序是语义的一部分）
-    root = _case(tmp_path, "乙方在前，甲方在后。", "甲方…乙方")
-    total, viol = scan_case(root)
+def test_out_of_order_fragments_flagged(tmp_path):
+    _, viol, _ = scan_case(_anchor_case(tmp_path, "乙方在前，甲方在后。", "甲方…乙方"))
     assert len(viol) == 1
 
 
 def test_missing_source_file_is_flagged(tmp_path):
-    (tmp_path / "wiki").mkdir(parents=True)
-    (tmp_path / "wiki" / "p.md").write_text(
-        "- 事实 〔来源: _md/missing.md：「随便」〕\n", encoding="utf-8")
-    total, viol = scan_case(tmp_path)
+    _write(tmp_path / "wiki" / "p.md", "- 事实 〔来源: _md/missing.md：「随便」〕\n")
+    _, viol, _ = scan_case(tmp_path)
     assert len(viol) == 1
+
+
+# ---- 死链 ----
+
+def test_dead_wikilink_flagged(tmp_path):
+    _write(tmp_path / "_md" / "a.md", "x")
+    _write(tmp_path / "wiki" / "甲.md", "见 [[不存在的页]]\n")
+    _, viol, _ = scan_case(tmp_path)
+    assert any("死链" in v for v in viol)
+
+
+def test_wikilink_resolves_by_alias(tmp_path):
+    _write(tmp_path / "_md" / "a.md", "x")
+    _write(tmp_path / "wiki" / "无锡尚惟.md", "---\naliases: [尚惟]\n---\n# 无锡尚惟\n")
+    _write(tmp_path / "wiki" / "p.md", "见 [[尚惟|尚惟]]\n")
+    _, viol, _ = scan_case(tmp_path)
+    assert viol == []
+
+
+# ---- 时间线顺序 ----
+
+def test_timeline_out_of_order_flagged(tmp_path):
+    _write(tmp_path / "_md" / "a.md", "x")
+    _write(tmp_path / "wiki" / "时间线" / "总览.md",
+           "# 时间线\n- 2022 年 6 月 9 日 甲\n- 2021 年 5 月 乙\n")
+    _, viol, _ = scan_case(tmp_path)
+    assert any("乱序" in v for v in viol)
+
+
+def test_timeline_in_order_passes(tmp_path):
+    _write(tmp_path / "_md" / "a.md", "x")
+    _write(tmp_path / "wiki" / "时间线" / "总览.md",
+           "# 时间线\n- 公司设立时 甲\n- 2021 年 5 月 乙\n- 2022 年 6 月 9 日 丙\n")
+    _, viol, _ = scan_case(tmp_path)
+    assert viol == []
+
+
+# ---- 覆盖率（警告） ----
+
+def test_uncited_source_warns(tmp_path):
+    _write(tmp_path / "_md" / "cited.md", "甲乙")
+    _write(tmp_path / "_md" / "draft.md", "草稿")
+    _write(tmp_path / "wiki" / "p.md", "- 事实 〔来源: _md/cited.md：「甲乙」〕\n")
+    _, viol, warn = scan_case(tmp_path)
+    assert viol == []
+    assert any("draft.md" in w for w in warn)
