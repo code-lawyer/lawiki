@@ -9,7 +9,6 @@ _md/
 .lint_out.txt
 .worklist.json
 .judge*.txt
-.worklist.json
 __pycache__/
 *.pyc
 .pytest_cache/
