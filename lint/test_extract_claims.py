@@ -35,10 +35,11 @@ def test_skips_heading_and_analysis_callout(tmp_path):
 
 
 def test_multiple_anchors_one_line(tmp_path):
+    # 每个锚点配它紧前的子断言，而非整行
     root = _wiki(tmp_path,
-                 "- 增资前 X；增资后 Y 〔来源: _md/a.md：「X」〕；〔来源: _md/b.md：「Y」〕\n")
+                 "- 增资前 X 〔来源: _md/a.md：「X」〕；增资后 Y 〔来源: _md/b.md：「Y」〕\n")
     pairs = get_pairs(root)
     assert len(pairs) == 2
-    assert {p["quote"] for p in pairs} == {"X", "Y"}
-    # 两对共享同一 claim（去掉全部锚点后的该行文字）
-    assert all("增资前 X" in p["claim"] for p in pairs)
+    by_quote = {p["quote"]: p["claim"] for p in pairs}
+    assert by_quote["X"] == "增资前 X"
+    assert by_quote["Y"] == "增资后 Y"

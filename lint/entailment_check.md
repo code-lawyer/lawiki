@@ -5,7 +5,7 @@
 ## 三步
 
 **① 抽取（确定性，`extract_claims.py`）**
-把 wiki 里每条带锚点的事实陈述拆成 `(page, claim, source, quote)`。跳过标题与 `>` 开头的分析 callout（那是已显式标注的 INFERRED）。
+把 wiki 里每条带锚点的事实陈述拆成 `(page, claim, source, quote, context)`。**每个锚点配它紧前的那段子断言**（锚点引它前面的话），一行多锚点则各管各的子断言——不是整行。`context` 是引文在源文里前后约 120 字的窗口（判官靠它，不喂全文）。跳过标题与 `>` 开头的分析 callout（已显式标注的 INFERRED）。
 
 ```
 python lint/extract_claims.py <案件根目录> > worklist.json

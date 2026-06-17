@@ -59,17 +59,22 @@ def get_pairs(root: Path) -> list[dict]:
             s = line.strip()
             if not s or s.startswith("#") or s.startswith(">"):
                 continue
-            anchors = ANCHOR_RE.findall(line)
-            if not anchors:
+            matches = list(ANCHOR_RE.finditer(line))
+            if not matches:
                 continue
-            claim = _LEAD.sub("", ANCHOR_RE.sub("", line)).strip()
-            for src, quote in anchors:
+            # 每个锚点配它**紧前**的那段文字（锚点引它前面的子断言），
+            # 而非整行——一行多锚点时各管各的子断言。
+            last = 0
+            for m in matches:
+                claim = _LEAD.sub("", line[last:m.start()]).strip(" ；;，,、")
+                last = m.end()
+                src, quote = m.group(1).strip(), m.group(2).strip()
                 pairs.append({
                     "page": page,
                     "claim": claim,
-                    "source": src.strip(),
-                    "quote": quote.strip(),
-                    "context": _context(root, src.strip(), quote.strip(), cache),
+                    "source": src,
+                    "quote": quote,
+                    "context": _context(root, src, quote, cache),
                 })
     return pairs
 
