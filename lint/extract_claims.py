@@ -31,10 +31,9 @@ def _context(root: Path, src: str, quote: str, cache: dict,
     if not sp.is_file():
         return ""
     if sp not in cache:
-        cache[sp] = norm_with_map(sp.read_text(encoding="utf-8"))
-        cache[(sp, "raw")] = sp.read_text(encoding="utf-8")
-    nsrc, idxmap = cache[sp]
-    raw = cache[(sp, "raw")]
+        raw = sp.read_text(encoding="utf-8")
+        cache[sp] = (raw, *norm_with_map(raw))
+    raw, nsrc, idxmap = cache[sp]
     frags = [f for f in SPLIT_RE.split(quote) if f.strip()]
     if not frags:
         return ""

@@ -47,26 +47,34 @@ def _frontmatter(text: str) -> str:
     return text[3:end] if end != -1 else ""
 
 
-def _page_names(wiki: Path) -> set[str]:
+def _load_pages(wiki: Path, root: Path) -> list[tuple[Path, str, str]]:
+    """一次性读入所有 wiki 页面：(路径, 相对根的 posix 路径, 正文)。各检查共用，
+    免得每个检查各自 rglob+read 一遍。"""
+    return [(md, md.relative_to(root).as_posix(), md.read_text(encoding="utf-8"))
+            for md in sorted(wiki.rglob("*.md"))]
+
+
+def _page_names(pages: list[tuple[Path, str, str]]) -> set[str]:
     """所有 wiki 页面的可链接名：文件名（去扩展名）+ frontmatter 声明的别名。"""
     names: set[str] = set()
-    for md in wiki.rglob("*.md"):
+    for md, _where, text in pages:
         names.add(md.stem)
-        m = ALIASES_RE.search(_frontmatter(md.read_text(encoding="utf-8")))
+        m = ALIASES_RE.search(_frontmatter(text))
         if m:
             names.update(a.strip() for a in m.group(1).split(",") if a.strip())
     return names
 
 
-def _check_anchors(root: Path, wiki: Path) -> tuple[list[str], set[str]]:
-    """返回 (违规列表, 被引用的源文件相对路径集合)。"""
+def _check_anchors(root: Path, pages: list[tuple[Path, str, str]]
+                   ) -> tuple[list[str], set[str], int]:
+    """返回 (违规列表, 被引用的源文件相对路径集合, 锚点总数)。"""
     cache: dict[Path, str] = {}
     violations: list[str] = []
     cited: set[str] = set()
-    for md in sorted(wiki.rglob("*.md")):
-        text = md.read_text(encoding="utf-8")
-        where = md.relative_to(root).as_posix()
+    total = 0
+    for _md, where, text in pages:
         for m in ANCHOR_RE.finditer(text):
+            total += 1
             rel, snippet = m.group(1).strip(), m.group(2)
             cited.add(rel)
             src = root / rel
@@ -78,22 +86,22 @@ def _check_anchors(root: Path, wiki: Path) -> tuple[list[str], set[str]]:
             body = cache[src]
             pos, missing = 0, None
             for frag in _fragments(snippet):
-                idx = body.find(_norm(frag), pos)
+                nf = _norm(frag)
+                idx = body.find(nf, pos)
                 if idx < 0:
                     missing = frag
                     break
-                pos = idx + len(_norm(frag))
+                pos = idx + len(nf)
             if missing is not None:
                 violations.append(
                     f"[片段不符] {where}\n          来源: {rel}\n          找不到片段: 「{missing}」")
-    return violations, cited
+    return violations, cited, total
 
 
-def _check_deadlinks(root: Path, wiki: Path, names: set[str]) -> list[str]:
+def _check_deadlinks(pages: list[tuple[Path, str, str]], names: set[str]) -> list[str]:
     violations: list[str] = []
-    for md in sorted(wiki.rglob("*.md")):
-        where = md.relative_to(root).as_posix()
-        for m in WIKILINK_RE.finditer(md.read_text(encoding="utf-8")):
+    for _md, where, text in pages:
+        for m in WIKILINK_RE.finditer(text):
             target = m.group(1).split("|")[0].split("#")[0].strip()
             if not target:  # [[#同页标题]]
                 continue
@@ -102,15 +110,13 @@ def _check_deadlinks(root: Path, wiki: Path, names: set[str]) -> list[str]:
     return violations
 
 
-def _check_timeline_order(root: Path, wiki: Path) -> list[str]:
+def _check_timeline_order(pages: list[tuple[Path, str, str]]) -> list[str]:
     violations: list[str] = []
-    tl = wiki / "时间线"
-    if not tl.is_dir():
-        return violations
-    for md in sorted(tl.rglob("*.md")):
-        where = md.relative_to(root).as_posix()
+    for _md, where, text in pages:
+        if "时间线" not in where.split("/"):
+            continue
         prev = None
-        for line in md.read_text(encoding="utf-8").splitlines():
+        for line in text.splitlines():
             if not line.lstrip().startswith("-"):
                 continue
             m = DATE_RE.search(line)
@@ -153,12 +159,11 @@ def _safe_eval(expr: str) -> float:
     return _ev(ast.parse(expr.replace(",", "").strip(), mode="eval").body)
 
 
-def _check_closures(root: Path, wiki: Path) -> list[str]:
+def _check_closures(pages: list[tuple[Path, str, str]]) -> list[str]:
     """校验 `> [!check] a + b == c` 勾稽断言：解析数字、做加减乘、核等式。"""
     violations: list[str] = []
-    for md in sorted(wiki.rglob("*.md")):
-        where = md.relative_to(root).as_posix()
-        for line in md.read_text(encoding="utf-8").splitlines():
+    for _md, where, text in pages:
+        for line in text.splitlines():
             m = CHECK_RE.search(line)
             if not m:
                 continue
@@ -185,14 +190,13 @@ def scan_case(root: Path) -> tuple[int, list[str], list[str]]:
     wiki = root / "wiki"
     if not wiki.is_dir():
         raise FileNotFoundError(f"找不到 {wiki}")
-    names = _page_names(wiki)
-    anchor_viol, cited = _check_anchors(root, wiki)
-    total = sum(len(ANCHOR_RE.findall(p.read_text(encoding="utf-8")))
-                for p in wiki.rglob("*.md"))
+    pages = _load_pages(wiki, root)
+    names = _page_names(pages)
+    anchor_viol, cited, total = _check_anchors(root, pages)
     violations = anchor_viol
-    violations += _check_deadlinks(root, wiki, names)
-    violations += _check_timeline_order(root, wiki)
-    violations += _check_closures(root, wiki)
+    violations += _check_deadlinks(pages, names)
+    violations += _check_timeline_order(pages)
+    violations += _check_closures(pages)
     warnings = _check_coverage(root, cited)
     return total, violations, warnings
 
