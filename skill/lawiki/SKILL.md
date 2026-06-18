@@ -1,15 +1,17 @@
 ---
 name: lawiki
-description: Use when building or maintaining a Chinese legal-case knowledge wiki from a folder of case materials — drives makeitdown to convert raw documents to markdown, then files them into a controlled, source-anchored case wiki (案件主体/法律关系/法律事实/时间线). Triggers on 整理案件资料、建案件库、把案件资料建成 wiki、ingest case files, or build a case wiki.
+description: Use when building or maintaining a Chinese legal-case knowledge wiki from a folder of case materials — drives makeitdown to convert raw documents to markdown, then files them into a controlled, source-anchored case wiki (案件主体/法律关系/法律事实/时间线). Triggers on 整理案件资料、把案件资料建成 wiki、建案件库、处理这个案子、ingest case files, build a case wiki.
 ---
 
 # lawiki — 法律案件 wiki 构建
 
-把一个案件的原始资料整合成**可控、可溯源**的 wiki。你（agent）负责全部归档与维护工作。法律工作不接受模糊和混乱——下面的铁律（三类标注 + 逐字锚点硬底线）不可违反。
+把一个案件的原始资料整合成**可控、可溯源**的 wiki。你（agent）负责全部归档与维护。法律工作不接受模糊和混乱——下面的**铁律（三类标注 + 逐字锚点硬底线）不可违反**。
 
-## 何时用
+细节按需读本 skill 的 `references/`（页面格式、Obsidian 约定、校验、首次配环境）；不必一次全装进注意力。`<SKILL_DIR>` 指本 skill 实际所在目录。
 
-用户把法律文件放进某案件目录的 `原始资料/`，要求"处理 / 整理 / 建库 / 建 wiki"时。
+## 何时用 / 怎么激活
+
+用户把法律文件放进某案件目录的 `原始资料/`，并说「整理案件资料」「把案件资料建成 wiki」「建案件库」「处理这个案子」「build a case wiki」等。
 
 ## 流水线
 
@@ -22,73 +24,40 @@ description: Use when building or maintaining a Chinese legal-case knowledge wik
 - `_md/`：makeitdown 转换产物，来源层，**永不修改**。
 - `wiki/`：你拥有并维护的案件 wiki。
 
+## 第〇步：首次配环境
+
+第一次在某机器上用、或缺 Python/makeitdown 时，照 **`references/setup.md`** 走：检测环境 → 让用户选 OCR 方式（本地/云端，附优缺点对比与 token 申请网址）→ 安装（并明确告诉用户"正在安装环境…"）→ 告知激活语。环境就绪可跳过本步。
+
 ## 第一步：确保案件结构存在
 
 若案件目录下没有 `wiki/`，创建固定结构（不要即兴增减，保证可复现）：
 
 ```
 wiki/
-  index.md          # 内容目录，每次 ingest 后更新
-  log.md            # append-only 操作日志
-  案件主体/         # 每个主体一页
-  法律关系/         # 每组法律关系一页
-  法律事实/         # 每个法律事实一页
-  时间线/           # 总览.md：把法律事实按时序串起来
+  index.md   log.md   案件主体/   法律关系/   法律事实/   时间线/
 ```
 
-并确保案件目录下有 `原始资料/` 与 `_md/`（无则建空目录）。
+并确保案件目录下有 `原始资料/` 与 `_md/`。`index.md`/`log.md` 的初始内容见 `references/page-formats.md`。
 
-`index.md` 初始内容：
-```markdown
-# 案件 wiki 索引
+## 第二步：转换（调 makeitdown）
 
-> 每次 ingest 后更新：按板块列出页面，每条附一行摘要。
-
-## 案件主体
-（暂无）
-
-## 法律关系
-（暂无）
-
-## 法律事实
-（暂无）
-
-## 时间线
-（暂无）
-```
-
-`log.md` 初始内容：
-```markdown
-# 操作日志
-
-> append-only。每条以 `## [YYYY-MM-DD] <操作> | <对象>` 开头。
-```
-
-## 第二步：转换（调 makeitdown CLI）
-
-makeitdown 是独立上游工具。在案件目录执行：
-
-```
-makeitdown 原始资料 -o _md
-```
-
-转换后读 `_md/report.json`，留意 `warned` / `failed` / `skipped`。失败或跳过的文件**不要凭空补内容**，按缺失处理并告知用户。
+在案件目录执行 `makeitdown 原始资料 -o _md`。转换后读 `_md/report.json`，留意 `warned`/`failed`/`skipped`。失败或跳过的文件**不要凭空补内容**，按缺失处理并告知用户。
 
 ## 第三步：ingest（逐个来源归档进 wiki）
 
 对 `_md/` 下每个 `.md`：
 
 1. 读其正文与 frontmatter。
-2. 若 frontmatter 含 `quality: suspect` → 该来源的所有引用在锚点后追加「（未核验）」。
-3. 抽取与案件主体相关的信息 → 写/更新 `wiki/案件主体/<主体名>.md`。
-4. 提炼有法律意义的事实点及其证据 → 写/更新 `wiki/法律事实/<事实名>.md`。
-5. 判定/更新案件的法律关系 → `wiki/法律关系/<关系名>.md`。
+2. 若含 `quality: suspect` → 该来源所有引用在锚点后追加「（未核验）」。
+3. 抽主体信息 → `wiki/案件主体/<主体名>.md`。
+4. 提炼有法律意义的事实点及证据 → `wiki/法律事实/<事实名>.md`。
+5. 判定/更新法律关系 → `wiki/法律关系/<关系名>.md`。
 6. 把事实按时序并入 `wiki/时间线/总览.md`。
-7. 维护交叉引用，更新 `wiki/index.md`，向 `wiki/log.md` 追加一条 `## [YYYY-MM-DD] ingest | <来源文件名>`。
-8. **确定性校验（lint）**：`python <SKILL_DIR>/lint/lint_wiki.py <案件根目录>`，把所有 flagged 锚点修到 **0 违规**——见下「校验」。
-9. **蕴含校验（换实例判官）**：见下「蕴含校验」。**每次 ingest 后必跑**，把"不支持/信息不足"修掉；三轮仍修不掉的，**显著列给用户**，不静默通过。
+7. 维护交叉引用，更新 `index.md`，向 `log.md` 追加 `## [YYYY-MM-DD] ingest | <来源文件名>`。
+8. **确定性校验（lint）**：`python <SKILL_DIR>/lint/lint_wiki.py <案件根目录>`，修到 **0 违规**。
+9. **蕴含校验（换实例判官）**：抽取 claim↔引文 → 派全新子代理三分判 → 有界修复 ≤3 轮 → 仍判不过的显著上报用户。
 
-> 第 8、9 步是 ingest 的收尾闸门：8 管"引文真"，9 管"断言不脑补"。两关都过才算这次 ingest 完成。增量 ingest 时，9 可只判本次新增/改动的锚点以省成本。
+第 8、9 步细节见 **`references/verification.md`**；页面格式见 **`references/page-formats.md`**；Obsidian 约定见 **`references/obsidian.md`**。
 
 ## 铁律：三类标注 + 一条硬底线（不可违反）
 
@@ -104,148 +73,18 @@ makeitdown 原始资料 -o _md
 
 ## 引用锚点（机器可校验）
 
-固定格式，**不使用页码**——只指明来自哪份文件的哪一部分，带逐字上下文片段，凭此回原件定位：
+固定格式，**不使用页码**——指明来自哪份文件的哪一部分，带逐字上下文片段：
 
 ```
 〔来源: _md/<相对路径>：「<逐字上下文片段>」〕
 ```
 
-- 片段取自源 md 原文，逐字。
-- 案件主体的每条属性、每个法律事实、每条时间线，都必须挂锚点。
-- 逐字片段即 EXTRACTED 的硬底线，同时满足"法律要害逐字照录"。
-- 片段可含 `…` 表示略去若干字（lint 会按 `…` 分段、按序匹配）。
-- **别引 OCR 打乱的表头**：扫描件表格的表头常被 OCR 打散、乱序，拼不出连续引文；改引该表里**干净、连续**的数据行或"总计"行（如「总计 … 1,803,111 … 100.00%」）。
-
-## 校验（lint，确定性闸门）
-
-> **校验工具随本 skill 发布，在本 skill 目录的 `lint/` 下。** 下文 `<SKILL_DIR>` 指本 skill 实际所在目录（agent 加载本 skill 时已知）。案件目录与 skill 目录通常不同，**务必用 `<SKILL_DIR>/lint/...` 的绝对路径调用**，别用相对 `lint/`。需要 Python 3.11+（仅标准库，无第三方依赖）。
-
-`lint/lint_wiki.py` 对案件目录做五类**确定性**检查。用法：`python <SKILL_DIR>/lint/lint_wiki.py <案件根目录>`（案件根目录下有 `wiki/` 与 `_md/`）。退出码非 0 即有**违规**。
-
-**违规（hard，必须修到 0）：**
-1. **锚点存在**：每个 `〔来源:…「片段」〕` 的逐字片段是否（去格式噪声后）逐字、按序出现在所指源文件里——EXTRACTED 硬底线。
-2. **死链**：每个 `[[wikilink]]` 是否解析到真实页面或其别名。
-3. **时间线顺序**：时间线页内可解析日期是否非递减。
-4. **勾稽闭合**：`> [!check] a + b == c` 断言的算术是否成立（安全求值，只许 +−× 与数字，绝不 eval；行尾可跟中文说明，自动忽略）。
-
-**警告（soft，不影响退出码，交人判断）：**
-5. **覆盖率**：`_md/` 下哪些源文件从未被任何锚点引用——可能是漏 ingest 的实质文件，也可能是有意跳过的草稿/红线版。
-
-校验**只消除格式噪声**（空白/换行/全半角标点/千分位逗号/markdown/表格/HTML 标签），**数字与文字精确**——"换行差异"不误报，"数字写错/张冠李戴"必被抓。每次 ingest 后必跑，修到 0 违规再交付，并复核覆盖率警告。**这是把 EXTRACTED 从自觉变成可机检的那一步。**
-
-## 蕴含校验（claim↔引文，ingest 第 9 步）
-
-锚点 lint 只证明"引文存在"；蕴含校验进一步证明"**断言真能由引文推出**"，抓"引文真、但断言被脑补/拔高/歪曲"（认购→已实缴、拟→已、部分→全体、指控→认定）。每次 ingest 收尾**自动**走：
-
-1. `python <SKILL_DIR>/lint/extract_claims.py <案件根目录> > worklist.json` —— 拆出每条 `(断言, 引文, 来源, 源文上下文)`（每锚点配它紧前的子断言）。
-2. **派一个全新子代理当判官**（绝不让本 ingest agent 判自己）：只喂这些对的"断言 + 引文 + 上下文"、不喂全文、不许外部知识，按 `<SKILL_DIR>/lint/entailment_check.md` 的 prompt 三分判（支持 / 不支持 / 信息不足）。
-3. **修**（由 ingest agent 做，不是判官）：
-   - 不支持 → 把断言改成忠实于引文的说法，或降级为 `> [!note] 分析`；
-   - 信息不足 → 换一条能完整支持的引文、或按"一断言一引文"拆开、或标「未核验」。
-   - **只许把断言改忠实，绝不为凑通过而编造引文里没有的内容**（那是把幻觉洗白）。
-4. 改完**重跑第 8 步 lint + 重判变动项**，最多三轮。
-5. 三轮仍判不过的，**连同判官理由显著列给用户**复核，不静默通过。
-
-判官是**筛子不是自动放行**；修复由 ingest agent 有界进行、未解决必上报。详见 `<SKILL_DIR>/lint/entailment_check.md`。
-
-**写作铁规则**：**一条断言 ← 一条能完整支持它的引文**。别把多个事实（日期+轮次+金额+注册资本…）塞在一条锚点下；一句里有几个独立事实就挂几条各自够用的锚点。
-
-> 数字**勾稽闭合**已机检（见校验 ④，页面写 `> [!check]` 断言）。法律定性正确性仍归人。
-
-## Obsidian 渲染约定（产出以 Obsidian 为基准）
-
-wiki 以 Obsidian 为查看器，用 Obsidian Flavored Markdown：
-
-- **交叉引用用 wikilink** `[[页面名]]`（按文件名解析，跨文件夹有效，重命名自动跟踪）；需自定义显示文字用 `[[页面名|显示]]`，如 `[[北京晨山|晨山]]`。
-- **分析/冲突/未核验用 callout**（彩色框）：分析 `> [!note] 分析`、冲突 `> [!warning] ⚠ 冲突`、可疑来源整页提示 `> [!caution] 含未核验来源`。
-- **frontmatter 即 Obsidian properties**：每页带 `tags`（板块名，便于过滤/图谱分组）；主体页带 `aliases`（简称，wikilink 自动补全）。
-- **来源锚点保持纯文本** `〔来源: …〕`——它是引证不是导航，且要保持正则可校验，**不要**改成 wikilink。
-- **vault 建议**：把 `wiki/` 单独作为 vault 打开，图谱最干净（`_md/` 不入图）；若把整个案件目录作 vault，在图谱过滤框输入 `path:wiki` 即可只看 wiki。
-
-## 冲突的写法（AMBIGUOUS）
-
-新来源与已有页面冲突时，加 callout 并列双方与各自锚点，**不覆盖**原内容：
-
-```markdown
-> [!warning] ⚠ 冲突
-> - 甲说法：<…> 〔来源: …〕
-> - 乙说法：<…> 〔来源: …〕
-```
-
-## 四类页面格式
-
-### 案件主体/<主体名>.md
-每个主体一页。收录在 `_md` 中能找到的、与该主体有关的一切：身份信息（如身份证号）、代理人/法定代表人、主体资格、关联关系等。
-
-```markdown
----
-类型: 案件主体
-tags: [案件主体]
-aliases: [<简称1>, <简称2>]
-更新于: <YYYY-MM-DD>
----
-# <主体名>
-
-- 身份信息：<…> 〔来源: _md/…：「…」〕
-- 代理人/法定代表人：<…> 〔来源: _md/…：「…」〕
-- 关联关系：<…> 〔来源: _md/…：「…」〕
-
-相关法律事实：[[<事实页>]]
-```
-
-### 法律关系/<关系名>.md
-按**中国大陆法律**确定案件归属类别，每组法律关系一页：商事（股权/合同/商标/知产纠纷…）、民事（借贷/房产纠纷…）、刑事（按罪名）。法律依据并入此处，不单独成页。
-
-```markdown
----
-类型: 法律关系
-tags: [法律关系]
-更新于: <YYYY-MM-DD>
----
-# <关系名，如：民间借贷纠纷>
-
-- 类别：<商事/民事/刑事 — 具体案由>
-- 主体：[[<甲>]]、[[<乙>]]
-- 请求权基础/法律依据：<…>
-- 相关法律事实：[[<事实>]]
-```
-
-### 法律事实/<事实名>.md
-有法律意义的事实点，每个一页，**必须挂证据支撑**（如"欠债事实"←欠条+转账记录）。证据不单独成页，以锚点形式嵌入。
-
-```markdown
----
-类型: 法律事实
-tags: [法律事实]
-更新于: <YYYY-MM-DD>
----
-# <事实名，如：甲向乙借款 50 万元>
-
-- 事实：<逐字要害，含金额/日期> 〔来源: _md/…：「…」〕
-- 证据：<欠条/转账记录…> 〔来源: _md/…：「…」〕
-
-> [!note] 分析
-> <法律意义>（如有；无则省略本 callout）
-
-> [!check] <可核的勾稽等式，如 a + b == c；无则省略>
-```
-
-### 时间线/总览.md
-把各法律事实按时序串起来，每条指回事实页与来源。
-
-```markdown
----
-类型: 时间线
-tags: [时间线]
-更新于: <YYYY-MM-DD>
----
-# 时间线
-
-- <YYYY-MM-DD> <事件> → [[<事实>]] 〔来源: _md/…：「…」〕
-```
+- 片段取自源 md 原文、逐字；可含 `…` 表略去（lint 按 `…` 分段、按序匹配）。
+- 案件主体每条属性、每个法律事实、每条时间线，都必须挂锚点。
+- **一条断言 ← 一条能完整支持它的引文**：别把多个事实塞一条锚点下。
+- **别引 OCR 打乱的表头**：扫描件表头常被 OCR 打散、乱序，拼不出连续引文；改引该表里干净、连续的数据行或"总计"行。
 
 ## 跨 agent
 
 - **Claude Code / Copilot**：本 `SKILL.md` 按 `description` 自动触发。
-- **Codex 等**：把本文件内容作为系统指令喂给 agent，或放入案件目录作 `AGENTS.md`。
-- 产出是 Obsidian Flavored Markdown，但仍是合法 markdown：在非 Obsidian 查看器中 callout 退化为引用块、wikilink 显示为文本，内容不丢。
+- **Codex 等**：把本文件内容作为系统指令喂给 agent，或放入案件目录作 `AGENTS.md`；`references/` 与 `lint/` 随本 skill 一起带上。

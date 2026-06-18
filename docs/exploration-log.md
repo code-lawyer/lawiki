@@ -81,3 +81,13 @@
 - 修：`git mv lint skill/lawiki/lint`，skill 自包含；SKILL.md 改用 `<SKILL_DIR>/lint/...` 绝对路径调用（agent 加载 skill 时已知 `<SKILL_DIR>`），并加路径说明。同步 README/spec 引用。
 - 顺手精简：删掉 skill 里纯重述铁律的两小节（事实/分析隔离、矛盾处理），只留冲突 callout 模板——回应"skill 应精炼"。251 行。
 - 验证：17 测试在新位置全过；用 ASCII 名最小案件、绝对路径端到端 smoke 跑通（锚点+勾稽）。注：本场的炎凰临时案件目录已被环境/用户清掉，无法再活体复跑，故用最小案件验证。
+
+## 2026-06-17：阶段一——渐进披露重构 + setup 引导
+
+- 用户问：能否纯 skill 交付、agent 自配环境？太长能否拆？为将来加功能考虑 skill 组。
+- 判断：① 核心（ingest+校验，lint 零依赖）能纯 skill 自包含；环境重依赖（makeitdown OCR 栈、Python 运行时、云端 token）**不能裸机全自动**，靠 setup 检测+引导+优雅降级。② 先做**渐进披露**（短主干 + 按需 references/），不是立刻拆子 skill。③ skill 组留作阶段二（真加 query 时升级成 plugin + 子 skill）。
+- 阶段一落地：
+  - `SKILL.md` 251→**90 行**：只留触发/流水线/铁律/锚点/ingest 步骤/各 references 指针。
+  - 新建 `references/`：`setup.md`（环境检测→选 OCR[本地/云端优缺点对比 + 百度 AI Studio token 网址]→安装[报进度]→降级→激活语）、`page-formats.md`（四模板+骨架）、`obsidian.md`（渲染约定）、`verification.md`（lint 五检查 + 蕴含校验流程）。
+  - 校验细节中的 `<SKILL_DIR>/lint/...` 绝对路径调用沿用。
+- 验证：17 测试过；4 references 齐、SKILL.md 引用无悬空。

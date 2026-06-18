@@ -8,6 +8,8 @@
 > **铁律已重构（2026-06-17）**：下文第四节「五条铁律」在实现中重写为 **EXTRACTED / INFERRED / AMBIGUOUS 三类标注 + 一条逐字锚点硬底线**（借鉴 graphify 的置信标签词汇，但保留可人工验证的逐字锚点为硬底线）。三类等价覆盖原五条：EXTRACTED=零来源不可写+要害逐字；INFERRED=不推断不脑补；AMBIGUOUS=可疑标未核验+矛盾只暴露。以 `skill/lawiki/SKILL.md` 为准。
 >
 > **Obsidian 为输出基准 + 新增校验层（2026-06-17）**：① 产出改用 Obsidian Flavored Markdown——交叉引用用 `[[wikilink]]`、分析/冲突用 callout、frontmatter 即 properties（带 tags/aliases）；来源锚点保持纯文本。② 新增确定性校验工具 `skill/lawiki/lint/lint_wiki.py`（详见第十二节）——这是 lawiki 的**第一段代码**，"纯 skill 无代码"在此让步，因为验证正是 skill 做不了、必须交给确定性代码的那一半。
+>
+> **阶段一：渐进披露重构（2026-06-17）**：`SKILL.md` 251→90 行——只留触发/流水线/铁律/锚点/ingest 步骤/references 指针，细节下沉到按需加载的 `references/`（`setup.md` 环境引导、`page-formats.md` 四模板、`obsidian.md` 渲染约定、`verification.md` 校验流程）；`lint/` 已在 skill 内，整个 `skill/lawiki/` **自包含**。新增 `setup.md` 引导首次配环境（检测→选 OCR[本地/云端对比+token 网址]→安装[报进度]→优雅降级→激活语）。**为将来 skill 组（阶段二）铺好结构**：真加 query 等操作时，把主干升级成 router、各操作成独立子 skill、共享 `lint/`+references。下文第九节的旧仓库结构以此为准更新。
 
 ## 一、定位与成果形态
 

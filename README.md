@@ -16,10 +16,23 @@
 
 [makeitdown](https://gitee.com/code-lawyer/makeitdown)（独立工具）：把各式文件转成 LLM 可读的 md。lawiki 通过其稳定输出契约（frontmatter 的 `source` / `quality: suspect` 等）对接。
 
+## 首次使用（自动配环境）
+
+第一次用时，agent 会照 `skill/lawiki/references/setup.md` 引导你配好环境：检测 Python / makeitdown → **让你选 OCR 方式（本地 vs 云端，附优缺点对比）** → 云端给出[百度 AI Studio](https://aistudio.baidu.com/)申请 token 的网址 → 安装（并明确告诉你"正在安装环境…"）→ 最后告诉你用哪些话激活它。lawiki 自带的校验工具（`lint/`）零第三方依赖，只要有 Python 即可。
+
+## 结构（一个自包含 skill）
+
+```
+skill/lawiki/
+  SKILL.md          # 短主干：触发 / 流水线 / 铁律 / 锚点 / ingest 步骤 / references 指针
+  references/       # 按需加载：setup / page-formats / obsidian / verification
+  lint/             # 自带校验代码（零第三方依赖）
+```
+
 ## 在不同 agent 下挂载
 
-- **Claude Code / Copilot**：把 `skill/lawiki/` 放入对应的 skills 目录，agent 会按 `description` 自动触发。
-- **Codex 等**：把 `skill/lawiki/SKILL.md` 内容作为系统指令喂给 agent，或放入案件目录作 `AGENTS.md`。
+- **Claude Code / Copilot**：把整个 `skill/lawiki/`（含 `references/`、`lint/`）放入对应的 skills 目录，agent 会按 `description` 自动触发。
+- **Codex 等**：把 `skill/lawiki/SKILL.md` 内容作为系统指令喂给 agent，并带上 `references/`、`lint/`；或放入案件目录作 `AGENTS.md`。
 
 ## 用法
 
