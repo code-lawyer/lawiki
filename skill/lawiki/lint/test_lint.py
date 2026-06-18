@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""lint 回归测试：锁住"归一化只消格式噪声、绝不放过真错"，并覆盖 Tier-A 各检查。"""
+"""lint 回归测试：锁住"归一化只消格式噪声、绝不放过真错"，覆盖 check 五类与 extract。"""
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from lint_wiki import scan_case  # noqa: E402
+from lint import scan_case, get_pairs  # noqa: E402
 
 
 def _write(p: Path, text: str) -> None:
@@ -12,15 +12,13 @@ def _write(p: Path, text: str) -> None:
     p.write_text(text, encoding="utf-8")
 
 
-def _anchor_case(tmp_path: Path, source: str, snippet: str,
-                 rel: str = "_md/a.md") -> Path:
+def _anchor_case(tmp_path: Path, source: str, snippet: str, rel: str = "_md/a.md") -> Path:
     _write(tmp_path / rel, source)
-    _write(tmp_path / "wiki" / "p.md",
-           f"- 事实 〔来源: {rel}：「{snippet}」〕\n")
+    _write(tmp_path / "wiki" / "p.md", f"- 事实 〔来源: {rel}：「{snippet}」〕\n")
     return tmp_path
 
 
-# ---- 锚点存在 ----
+# ---- ① 锚点存在 ----
 
 def test_exact_match_passes(tmp_path):
     _, viol, _ = scan_case(_anchor_case(tmp_path, "甲向乙借款500,000元。", "甲向乙借款500,000元"))
@@ -54,7 +52,7 @@ def test_missing_source_file_is_flagged(tmp_path):
     assert len(viol) == 1
 
 
-# ---- 死链 ----
+# ---- ② 死链 ----
 
 def test_dead_wikilink_flagged(tmp_path):
     _write(tmp_path / "_md" / "a.md", "x")
@@ -71,7 +69,7 @@ def test_wikilink_resolves_by_alias(tmp_path):
     assert viol == []
 
 
-# ---- 时间线顺序 ----
+# ---- ③ 时间线顺序 ----
 
 def test_timeline_out_of_order_flagged(tmp_path):
     _write(tmp_path / "_md" / "a.md", "x")
@@ -89,18 +87,7 @@ def test_timeline_in_order_passes(tmp_path):
     assert viol == []
 
 
-# ---- 覆盖率（警告） ----
-
-def test_uncited_source_warns(tmp_path):
-    _write(tmp_path / "_md" / "cited.md", "甲乙")
-    _write(tmp_path / "_md" / "draft.md", "草稿")
-    _write(tmp_path / "wiki" / "p.md", "- 事实 〔来源: _md/cited.md：「甲乙」〕\n")
-    _, viol, warn = scan_case(tmp_path)
-    assert viol == []
-    assert any("draft.md" in w for w in warn)
-
-
-# ---- 勾稽闭合 ----
+# ---- ④ 勾稽闭合 ----
 
 def test_closure_ok_passes(tmp_path):
     _write(tmp_path / "_md" / "a.md", "x")
@@ -122,3 +109,41 @@ def test_closure_ignores_trailing_comment(tmp_path):
            "> [!check] 1,749,287 + 53,824 == 1,803,111 （增资前+新增=增资后）\n")
     _, viol, _ = scan_case(tmp_path)
     assert viol == []
+
+
+# ---- ⑤ 覆盖率（警告） ----
+
+def test_uncited_source_warns(tmp_path):
+    _write(tmp_path / "_md" / "cited.md", "甲乙")
+    _write(tmp_path / "_md" / "draft.md", "草稿")
+    _write(tmp_path / "wiki" / "p.md", "- 事实 〔来源: _md/cited.md：「甲乙」〕\n")
+    _, viol, warn = scan_case(tmp_path)
+    assert viol == [] and any("draft.md" in w for w in warn)
+
+
+# ---- extract ----
+
+def test_extract_basic_pair(tmp_path):
+    _write(tmp_path / "wiki" / "p.md", "- 蓝驰增资 3000 万 〔来源: _md/a.md：「蓝驰以叁仟万元」〕\n")
+    pairs = get_pairs(tmp_path)
+    assert len(pairs) == 1
+    assert pairs[0]["claim"] == "蓝驰增资 3000 万"
+    assert pairs[0]["source"] == "_md/a.md" and pairs[0]["quote"] == "蓝驰以叁仟万元"
+
+
+def test_extract_skips_heading_and_analysis(tmp_path):
+    body = ("# 标题 〔来源: _md/a.md：「不该抽」〕\n"
+            "> [!note] 分析\n"
+            "> 推断如此 〔来源: _md/a.md：「也不该抽」〕\n"
+            "- 真事实 〔来源: _md/a.md：「该抽」〕\n")
+    _write(tmp_path / "wiki" / "p.md", body)
+    pairs = get_pairs(tmp_path)
+    assert len(pairs) == 1 and pairs[0]["quote"] == "该抽"
+
+
+def test_extract_per_anchor_subclaim(tmp_path):
+    _write(tmp_path / "wiki" / "p.md",
+           "- 增资前 X 〔来源: _md/a.md：「X」〕；增资后 Y 〔来源: _md/b.md：「Y」〕\n")
+    pairs = get_pairs(tmp_path)
+    by_quote = {p["quote"]: p["claim"] for p in pairs}
+    assert by_quote["X"] == "增资前 X" and by_quote["Y"] == "增资后 Y"

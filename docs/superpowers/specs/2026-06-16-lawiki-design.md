@@ -9,7 +9,9 @@
 >
 > **Obsidian 为输出基准 + 新增校验层（2026-06-17）**：① 产出改用 Obsidian Flavored Markdown——交叉引用用 `[[wikilink]]`、分析/冲突用 callout、frontmatter 即 properties（带 tags/aliases）；来源锚点保持纯文本。② 新增确定性校验工具 `skill/lawiki/lint/lint_wiki.py`（详见第十二节）——这是 lawiki 的**第一段代码**，"纯 skill 无代码"在此让步，因为验证正是 skill 做不了、必须交给确定性代码的那一半。
 >
-> **阶段一：渐进披露重构（2026-06-17）**：`SKILL.md` 251→90 行——只留触发/流水线/铁律/锚点/ingest 步骤/references 指针，细节下沉到按需加载的 `references/`（`setup.md` 环境引导、`page-formats.md` 四模板、`obsidian.md` 渲染约定、`verification.md` 校验流程）；`lint/` 已在 skill 内，整个 `skill/lawiki/` **自包含**。新增 `setup.md` 引导首次配环境（检测→选 OCR[本地/云端对比+token 网址]→安装[报进度]→优雅降级→激活语）。**为将来 skill 组（阶段二）铺好结构**：真加 query 等操作时，把主干升级成 router、各操作成独立子 skill、共享 `lint/`+references。下文第九节的旧仓库结构以此为准更新。
+> **阶段一：渐进披露重构（2026-06-17）**：`SKILL.md` 251→90 行——只留触发/流水线/铁律/锚点/ingest 步骤/references 指针，细节下沉到按需加载的 `references/`；`lint/` 已在 skill 内，整个 `skill/lawiki/` **自包含**。新增 `setup.md` 引导首次配环境（检测→选 OCR[本地/云端对比+token 网址]→安装[报进度]→优雅降级→激活语）。**为将来 skill 组（阶段二）铺好结构**：真加 query 等操作时，把主干升级成 router、各操作成独立子 skill、共享 `lint/`+references。
+>
+> **交付形态定为 A（干净 skill 文件夹）+ 收紧（2026-06-17）**：用户要"简单 skill"，权衡后选"标准 skill 文件夹"（保留确定性校验，不降级为软自检）。顺手收紧到 **6 文件**：`SKILL.md` + `references/`（`setup.md`、`page-formats.md`[页面模板+Obsidian 约定]、`verification.md`[校验流程+判官 prompt]）+ `lint/`（`lint.py`[三 .py 合一，`check`/`extract` 两子命令]、`test_lint.py`）。下文第九节旧结构以此为准。
 
 ## 一、定位与成果形态
 
@@ -190,7 +192,7 @@ v1 几乎无确定性代码，故不设单元测试。验证 = **端到端人工
 
 "可控"要求把铁律从 agent 自觉变成可检测。检测分三层，按"能确定性就确定性、不能才用 LLM、法律判断归人"：
 
-**Tier A —— 确定性（已实现：`skill/lawiki/lint/lint_wiki.py` + `skill/lawiki/lint/test_lint_wiki.py`）**
+**Tier A —— 确定性（已实现：`skill/lawiki/lint/lint.py check` + `skill/lawiki/lint/test_lint.py`）**
 - **锚点存在**：每个 `〔来源:…「片段」〕` 的逐字片段（去格式噪声后）逐字、按序出现在所指源文件里——EXTRACTED 硬底线的机器闸门。
 - **死链**：每个 `[[wikilink]]` 解析到真实页面或其 frontmatter 别名。
 - **时间线顺序**：时间线页内可解析日期非递减。
@@ -199,9 +201,9 @@ v1 几乎无确定性代码，故不设单元测试。验证 = **端到端人工
 - 归一化只消格式噪声（空白/换行/全半角标点/千分位逗号/markdown/表格/HTML 标签），数字与文字精确——"数字写错/张冠李戴"必被抓、"换行差异"不误报。`…` 表略去，按段匹配。
 
 **Tier B —— 窄域、换实例的 LLM 校验**
-- **claim↔引文语义蕴含（已建并接入 ingest 第 9 步）**：引文逐字属实，但旁边的自然语言断言把它脑补/拔高/歪曲了（认购→已实缴、拟→已、部分→全体、指控→认定）——确定性代码判不了。`skill/lawiki/lint/extract_claims.py` 确定性拆出 `(断言, 引文, 来源, 上下文)`（每锚点配其紧前子断言）；交**另一个** LLM 实例三分判（支持/不支持/信息不足），只喂"引文+源文上下文窗口"、不喂全文、不许外部知识。**已接成 ingest 收尾的自动一步**：判官只判，ingest agent 据判官**有界修复**（只许把断言改忠实，绝不编造）→ 重跑 lint+重判 ≤3 轮 → 仍判不过的显著上报用户，不静默通过。协议见 `skill/lawiki/lint/entailment_check.md`。
+- **claim↔引文语义蕴含（已建并接入 ingest 第 9 步）**：引文逐字属实，但旁边的自然语言断言把它脑补/拔高/歪曲了（认购→已实缴、拟→已、部分→全体、指控→认定）——确定性代码判不了。`skill/lawiki/lint/lint.py extract` 确定性拆出 `(断言, 引文, 来源, 上下文)`（每锚点配其紧前子断言）；交**另一个** LLM 实例三分判（支持/不支持/信息不足），只喂"引文+源文上下文窗口"、不喂全文、不许外部知识。**已接成 ingest 收尾的自动一步**：判官只判，ingest agent 据判官**有界修复**（只许把断言改忠实，绝不编造）→ 重跑 lint+重判 ≤3 轮 → 仍判不过的显著上报用户，不静默通过。协议见 `skill/lawiki/references/verification.md`。
   - **实测（炎凰 12 真实 + 3 植入歪曲）**：植入的 3 条全被判"不支持"，忠实条放过，并抓出本 wiki 自身 4 条"信息不足"（多事实塞一条锚点、引文只撑一部分）。
-  - **两项产出**：① 写作铁规则"**一条断言 ← 一条能完整支持它的引文**"（已写进 SKILL.md）；② 设计精化"判官喂引文 + 源文上下文窗口"以免上下文饿死误报——**已实现**：`extract_claims.py` 输出含 `context` 字段（在源文里定位引文、截前后约 120 字）。
+  - **两项产出**：① 写作铁规则"**一条断言 ← 一条能完整支持它的引文**"（已写进 SKILL.md）；② 设计精化"判官喂引文 + 源文上下文窗口"以免上下文饿死误报——**已实现**：`lint.py extract` 输出含 `context` 字段（在源文里定位引文、截前后约 120 字）。
 - **数字勾稽闭合**：已实现，归入上面的 Tier-A 确定性检查（`> [!check]` 断言）。
 
 **Tier C —— 归人的法律判断（不可机械化）**

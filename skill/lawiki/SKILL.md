@@ -7,7 +7,7 @@ description: Use when building or maintaining a Chinese legal-case knowledge wik
 
 把一个案件的原始资料整合成**可控、可溯源**的 wiki。你（agent）负责全部归档与维护。法律工作不接受模糊和混乱——下面的**铁律（三类标注 + 逐字锚点硬底线）不可违反**。
 
-细节按需读本 skill 的 `references/`（页面格式、Obsidian 约定、校验、首次配环境）；不必一次全装进注意力。`<SKILL_DIR>` 指本 skill 实际所在目录。
+细节按需读本 skill 的 `references/`（`setup.md` 首次配环境、`page-formats.md` 页面格式+Obsidian 约定、`verification.md` 校验）；不必一次全装进注意力。`<SKILL_DIR>` 指本 skill 实际所在目录。
 
 ## 何时用 / 怎么激活
 
@@ -54,10 +54,10 @@ wiki/
 5. 判定/更新法律关系 → `wiki/法律关系/<关系名>.md`。
 6. 把事实按时序并入 `wiki/时间线/总览.md`。
 7. 维护交叉引用，更新 `index.md`，向 `log.md` 追加 `## [YYYY-MM-DD] ingest | <来源文件名>`。
-8. **确定性校验（lint）**：`python <SKILL_DIR>/lint/lint_wiki.py <案件根目录>`，修到 **0 违规**。
+8. **确定性校验（lint）**：`python <SKILL_DIR>/lint/lint.py check <案件根目录>`，修到 **0 违规**。
 9. **蕴含校验（换实例判官）**：抽取 claim↔引文 → 派全新子代理三分判 → 有界修复 ≤3 轮 → 仍判不过的显著上报用户。
 
-第 8、9 步细节见 **`references/verification.md`**；页面格式见 **`references/page-formats.md`**；Obsidian 约定见 **`references/obsidian.md`**。
+第 8、9 步细节见 **`references/verification.md`**；页面格式与 Obsidian 约定见 **`references/page-formats.md`**。
 
 ## 铁律：三类标注 + 一条硬底线（不可违反）
 

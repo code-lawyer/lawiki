@@ -91,3 +91,9 @@
   - 新建 `references/`：`setup.md`（环境检测→选 OCR[本地/云端优缺点对比 + 百度 AI Studio token 网址]→安装[报进度]→降级→激活语）、`page-formats.md`（四模板+骨架）、`obsidian.md`（渲染约定）、`verification.md`（lint 五检查 + 蕴含校验流程）。
   - 校验细节中的 `<SKILL_DIR>/lint/...` 绝对路径调用沿用。
 - 验证：17 测试过；4 references 齐、SKILL.md 引用无悬空。
+
+## 2026-06-17：交付形态定为 A（干净 skill 文件夹）+ 收紧
+
+- 用户要"一个简单的 skill 文件"。讲清取舍：skill 本就是小文件夹；唯一非 markdown 的是确定性 lint 代码。三选（A 文件夹/B 单文件无代码丢确定性/C 单文件内嵌代码），用户选 **A**——保留确定性校验。
+- 顺手收紧到 **6 文件**：`lint/` 三个 .py（_normalize/lint_wiki/extract_claims）合一为 `lint.py`（`check`/`extract` 两子命令）+ `test_lint.py`；`references/` 4→3（obsidian 并入 page-formats，判官 prompt 从 entailment_check 并入 verification）。
+- 验证：17 测试过（导入自 `lint`）；`check`/`extract` 两子命令冒烟通过；SKILL.md/README/spec 引用全部改到 `lint.py`/新 references。
