@@ -85,7 +85,7 @@ makeitdown 原始资料 -o _md
 5. 判定/更新案件的法律关系 → `wiki/法律关系/<关系名>.md`。
 6. 把事实按时序并入 `wiki/时间线/总览.md`。
 7. 维护交叉引用，更新 `wiki/index.md`，向 `wiki/log.md` 追加一条 `## [YYYY-MM-DD] ingest | <来源文件名>`。
-8. **确定性校验（lint）**：`python lint/lint_wiki.py <案件根目录>`，把所有 flagged 锚点修到 **0 违规**——见下「校验」。
+8. **确定性校验（lint）**：`python <SKILL_DIR>/lint/lint_wiki.py <案件根目录>`，把所有 flagged 锚点修到 **0 违规**——见下「校验」。
 9. **蕴含校验（换实例判官）**：见下「蕴含校验」。**每次 ingest 后必跑**，把"不支持/信息不足"修掉；三轮仍修不掉的，**显著列给用户**，不静默通过。
 
 > 第 8、9 步是 ingest 的收尾闸门：8 管"引文真"，9 管"断言不脑补"。两关都过才算这次 ingest 完成。增量 ingest 时，9 可只判本次新增/改动的锚点以省成本。
@@ -118,7 +118,9 @@ makeitdown 原始资料 -o _md
 
 ## 校验（lint，确定性闸门）
 
-`lint/lint_wiki.py` 对案件目录做五类**确定性**检查。用法：`python lint/lint_wiki.py <案件根目录>`（根目录下有 `wiki/` 与 `_md/`）。退出码非 0 即有**违规**。
+> **校验工具随本 skill 发布，在本 skill 目录的 `lint/` 下。** 下文 `<SKILL_DIR>` 指本 skill 实际所在目录（agent 加载本 skill 时已知）。案件目录与 skill 目录通常不同，**务必用 `<SKILL_DIR>/lint/...` 的绝对路径调用**，别用相对 `lint/`。需要 Python 3.11+（仅标准库，无第三方依赖）。
+
+`lint/lint_wiki.py` 对案件目录做五类**确定性**检查。用法：`python <SKILL_DIR>/lint/lint_wiki.py <案件根目录>`（案件根目录下有 `wiki/` 与 `_md/`）。退出码非 0 即有**违规**。
 
 **违规（hard，必须修到 0）：**
 1. **锚点存在**：每个 `〔来源:…「片段」〕` 的逐字片段是否（去格式噪声后）逐字、按序出现在所指源文件里——EXTRACTED 硬底线。
@@ -135,8 +137,8 @@ makeitdown 原始资料 -o _md
 
 锚点 lint 只证明"引文存在"；蕴含校验进一步证明"**断言真能由引文推出**"，抓"引文真、但断言被脑补/拔高/歪曲"（认购→已实缴、拟→已、部分→全体、指控→认定）。每次 ingest 收尾**自动**走：
 
-1. `python lint/extract_claims.py <案件根目录> > worklist.json` —— 拆出每条 `(断言, 引文, 来源, 源文上下文)`（每锚点配它紧前的子断言）。
-2. **派一个全新子代理当判官**（绝不让本 ingest agent 判自己）：只喂这些对的"断言 + 引文 + 上下文"、不喂全文、不许外部知识，按 `lint/entailment_check.md` 的 prompt 三分判（支持 / 不支持 / 信息不足）。
+1. `python <SKILL_DIR>/lint/extract_claims.py <案件根目录> > worklist.json` —— 拆出每条 `(断言, 引文, 来源, 源文上下文)`（每锚点配它紧前的子断言）。
+2. **派一个全新子代理当判官**（绝不让本 ingest agent 判自己）：只喂这些对的"断言 + 引文 + 上下文"、不喂全文、不许外部知识，按 `<SKILL_DIR>/lint/entailment_check.md` 的 prompt 三分判（支持 / 不支持 / 信息不足）。
 3. **修**（由 ingest agent 做，不是判官）：
    - 不支持 → 把断言改成忠实于引文的说法，或降级为 `> [!note] 分析`；
    - 信息不足 → 换一条能完整支持的引文、或按"一断言一引文"拆开、或标「未核验」。
@@ -144,7 +146,7 @@ makeitdown 原始资料 -o _md
 4. 改完**重跑第 8 步 lint + 重判变动项**，最多三轮。
 5. 三轮仍判不过的，**连同判官理由显著列给用户**复核，不静默通过。
 
-判官是**筛子不是自动放行**；修复由 ingest agent 有界进行、未解决必上报。详见 `lint/entailment_check.md`。
+判官是**筛子不是自动放行**；修复由 ingest agent 有界进行、未解决必上报。详见 `<SKILL_DIR>/lint/entailment_check.md`。
 
 **写作铁规则**：**一条断言 ← 一条能完整支持它的引文**。别把多个事实（日期+轮次+金额+注册资本…）塞在一条锚点下；一句里有几个独立事实就挂几条各自够用的锚点。
 
@@ -160,22 +162,15 @@ wiki 以 Obsidian 为查看器，用 Obsidian Flavored Markdown：
 - **来源锚点保持纯文本** `〔来源: …〕`——它是引证不是导航，且要保持正则可校验，**不要**改成 wikilink。
 - **vault 建议**：把 `wiki/` 单独作为 vault 打开，图谱最干净（`_md/` 不入图）；若把整个案件目录作 vault，在图谱过滤框输入 `path:wiki` 即可只看 wiki。
 
-## 事实与分析的隔离（INFERRED）
+## 冲突的写法（AMBIGUOUS）
 
-- 事实（EXTRACTED）：直接陈述 + 逐字锚点。
-- 推断（INFERRED）：只能放在 `> [!note] 分析` callout 内，显式标注 + 写明依据，绝不与事实混排。
-
-## 矛盾与存疑处理（AMBIGUOUS）
-
-新来源与已有页面冲突时，在相关页面加 callout：
+新来源与已有页面冲突时，加 callout 并列双方与各自锚点，**不覆盖**原内容：
 
 ```markdown
 > [!warning] ⚠ 冲突
 > - 甲说法：<…> 〔来源: …〕
 > - 乙说法：<…> 〔来源: …〕
 ```
-
-并列冲突双方与各自锚点，**不覆盖**原内容。
 
 ## 四类页面格式
 
