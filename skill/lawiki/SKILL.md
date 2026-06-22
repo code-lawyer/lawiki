@@ -1,13 +1,13 @@
 ---
 name: lawiki
-description: Use when building or maintaining a Chinese legal-case knowledge wiki from a folder of case materials — drives makeitdown to convert raw documents to markdown, then files them into a controlled, source-anchored case wiki (案件主体/法律关系/法律事实/时间线). Triggers on 整理案件资料、把案件资料建成 wiki、建案件库、处理这个案子、ingest case files, build a case wiki.
+description: Use when building, maintaining, OR answering questions about a Chinese legal-case knowledge wiki from a folder of case materials — drives makeitdown to convert raw documents to markdown, files them into a controlled, source-anchored case wiki (案件主体/法律关系/法律事实/时间线), and answers case questions by cross-checking the wiki against RAG evidence over the source files. Triggers on 整理案件资料、把案件资料建成 wiki、建案件库、处理这个案子、ingest case files, build a case wiki; and on 问本案、关于这个案子、本案里 X 是什么/多少/是谁 (ask about this case).
 ---
 
 # lawiki — 法律案件 wiki 构建
 
 把一个案件的原始资料整合成**可控、可溯源**的 wiki。你（agent）负责全部归档与维护。法律工作不接受模糊和混乱——下面的**铁律（三类标注 + 逐字锚点硬底线）不可违反**。
 
-细节按需读本 skill 的 `references/`（`setup.md` 首次配环境、`page-formats.md` 页面格式+Obsidian 约定、`verification.md` 校验）；不必一次全装进注意力。`<SKILL_DIR>` 指本 skill 实际所在目录。
+细节按需读本 skill 的 `references/`（`setup.md` 首次配环境、`page-formats.md` 页面格式+Obsidian 约定、`verification.md` 校验、`rag.md` RAG 索引检索、`qa.md` 案件问答协议）；不必一次全装进注意力。`<SKILL_DIR>` 指本 skill 实际所在目录。
 
 ## 何时用 / 怎么激活
 
@@ -16,13 +16,15 @@ description: Use when building or maintaining a Chinese legal-case knowledge wik
 ## 流水线
 
 ```
-原始资料/ ──makeitdown──▶ _md/ ──ingest──▶ wiki/
+原始资料/ ──makeitdown──▶ _md/ ──┬── ingest ──▶ wiki/   （你综合归档）
+                                  └── index ──▶ .rag/   （确定性脚本，可选）
 ```
 
 三层结构（前两层不可变，你只写第三层）：
 - `原始资料/`：用户丢入的原件，真相之源，**永不修改**。
 - `_md/`：makeitdown 转换产物，来源层，**永不修改**。
 - `wiki/`：你拥有并维护的案件 wiki。
+- `.rag/`：RAG 向量库，从 `_md/` 派生、与 `wiki/` 平级，隐藏、可重建、可选（见 `rag.md`）。
 
 ## 第〇步：首次配环境
 
@@ -43,6 +45,16 @@ wiki/
 
 在案件目录执行 `makeitdown 原始资料 -o _md`。转换后读 `_md/report.json`，留意 `warned`/`failed`/`skipped`。失败或跳过的文件**不要凭空补内容**，按缺失处理并告知用户。
 
+## 第二步半：索引 `_md/` → `.rag/`（确定性，可选可降级）
+
+装了 rag-retriever 就建索引，支撑后续交叉验证问答：
+
+```
+python <SKILL_DIR>/tools/rag.py index <案件根目录>
+```
+
+确定性、跑命令即可，无需判断。新增来源后重跑同一条命令增量刷新。没装 / 装不上**不阻塞核心**——问答会退化「仅 wiki」。细节与降级见 `rag.md`，首次安装见 `setup.md`。
+
 ## 第三步：ingest（逐个来源归档进 wiki）
 
 对 `_md/` 下每个 `.md`：
@@ -58,6 +70,10 @@ wiki/
 9. **蕴含校验（换实例判官）**：抽取 claim↔引文 → 派全新子代理三分判 → 有界修复 ≤3 轮 → 仍判不过的显著上报用户。
 
 第 8、9 步细节见 **`references/verification.md`**；页面格式与 Obsidian 约定见 **`references/page-formats.md`**。
+
+## 案件问答（交叉验证）
+
+案件建好后，用户**就内容提问**——「问本案…」「关于这个案子…」「本案里 X 是什么/多少/是谁」等（与「整理/建库/ingest」这类**构建**触发词区分）——走交叉验证问答：**双路并行取证**（wiki 已综合结论 + RAG 原文证据，`python <SKILL_DIR>/tools/rag.py search <案件根> "<问题>" -k 8`）→ **四情形分流**：一致则答、wiki 沉默用原文答、不一致能定因则以原文为准并指出 wiki 待修处、查不出因则把两套答案 + 各自锚点并列交用户裁决。完整协议（含引用纪律、降级）见 **`references/qa.md`**。RAG 不可用时退化「仅 wiki」并告知用户。
 
 ## 铁律：三类标注 + 一条硬底线（不可违反）
 
