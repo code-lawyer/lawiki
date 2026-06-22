@@ -28,14 +28,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-# rag-retriever 各后端默认模型——**刻意镜像** rag_retriever.config 的默认表
-# （我们不 import 它，只认 CLI/JSON 契约）。改这里须与 rag-retriever 同步。
-_DEFAULT_MODEL = {
-    "local": "BAAI/bge-small-zh-v1.5",
-    "ollama": "bge-m3",
-    "openai": "BAAI/bge-m3",
-}
-
 # lawiki 固定透传的 frontmatter 字段（makeitdown 写的质量信号）。
 _METADATA_FIELDS = "quality"
 
@@ -55,13 +47,13 @@ def default_snippet(text: str) -> str:
     折叠空白。lint 锚点是单行（ANCHOR_RE 的 . 不跨行），且归一化丢弃空白——故
     折叠后的片段既单行、又能在源文件逐字定位。agent 通常会进一步缩到具体支撑句。
     """
-    body = text
-    if body.startswith("---"):
-        end = body.find("\n---", 3)
-        if end != -1:
-            nl = body.find("\n", end + 1)
-            body = body[nl + 1:] if nl != -1 else ""
-    return " ".join(body.split())
+    lines = text.splitlines()
+    if lines and lines[0].strip() == "---":  # 去前导 frontmatter 块（含闭合 fence 行尾空格）
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                lines = lines[i + 1:]
+                break
+    return " ".join(" ".join(lines).split())
 
 
 def enrich_hit(hit: dict) -> dict:
@@ -79,22 +71,16 @@ def enrich_hit(hit: dict) -> dict:
     }
 
 
-def current_model(env: dict | None = None) -> tuple[str, str]:
-    """当前查询将使用的 (backend, model)，读环境变量、回退默认（镜像 rag-retriever）。"""
-    env = os.environ if env is None else env
-    backend = (env.get("RAG_EMBED_BACKEND") or "local").lower()
-    model = env.get("RAG_EMBED_MODEL") or _DEFAULT_MODEL.get(backend, "")
-    return backend, model
-
-
-def model_status(stats: dict, backend: str, model: str) -> tuple[bool, str]:
-    """比对索引时模型与当前查询模型。返回 (ok, 不一致原因)。"""
-    idx_backend, idx_model = stats.get("backend"), stats.get("model")
-    if idx_model is None:
+def model_status(stats: dict) -> tuple[bool, str]:
+    """比对索引时模型与当前查询模型——两者都由 rag-retriever `stats` 提供，
+    本 wrapper 不自行推导模型（避免镜像其默认表）。返回 (ok, 不一致原因)。"""
+    idx = (stats.get("index_backend"), stats.get("index_model"))
+    qry = (stats.get("query_backend"), stats.get("query_model"))
+    if idx[1] is None:
         return False, "尚未建索引（.rag 为空或无效），先运行：rag.py index <案件>"
-    if (idx_backend, idx_model) != (backend, model):
+    if idx != qry:
         return False, (
-            f"索引模型({idx_backend}/{idx_model}) 与当前查询模型({backend}/{model}) "
+            f"索引模型({idx[0]}/{idx[1]}) 与当前查询模型({qry[0]}/{qry[1]}) "
             f"不一致——相似度会失真，须用同一模型重建索引（rebuild）")
     return True, ""
 
@@ -120,6 +106,10 @@ def _paths(case: Path) -> tuple[Path, Path]:
     return case / "_md", case / ".rag"
 
 
+def _degrade(reason: str) -> dict:
+    return {"rag_available": False, "reason": f"{reason}——问答退化为仅 wiki。"}
+
+
 def index_case(case: Path) -> dict:
     md_dir, data_dir = _paths(case)
     if not md_dir.is_dir():
@@ -143,27 +133,25 @@ def search_case(case: Path, query: str, k: int = 8) -> dict:
     _md_dir, data_dir = _paths(case)
 
     if not data_dir.is_dir():
-        return {"rag_available": False,
-                "reason": "尚未建索引（无 .rag/）——问答退化为仅 wiki。"}
+        return _degrade("尚未建索引（无 .rag/）")
 
-    # 模型一致性闸门：用 stats（报索引时模型）比当前查询模型
+    # 模型一致性闸门：stats 同时报索引时模型与当前查询模型，本 wrapper 只比对
     stats_proc = _run_rag(data_dir, ["stats"])
     if stats_proc is None:
-        return {"rag_available": False,
-                "reason": "未安装 rag-retriever——问答退化为仅 wiki。"}
+        return _degrade("未安装 rag-retriever")
     try:
         stats = json.loads(stats_proc.stdout)
     except ValueError:
         stats = {}
-    backend, model = current_model()
-    ok, reason = model_status(stats, backend, model)
+    ok, reason = model_status(stats)
     if not ok:
         return {"rag_available": False, "reason": reason}
 
     proc = _run_rag(data_dir, ["search", query, "-k", str(k), "--json"])
-    if proc is None or proc.returncode != 0:
-        why = "未安装 rag-retriever" if proc is None else (proc.stderr or proc.stdout).strip()
-        return {"rag_available": False, "reason": f"{why}——问答退化为仅 wiki。"}
+    if proc is None:
+        return _degrade("未安装 rag-retriever")
+    if proc.returncode != 0:
+        return _degrade((proc.stderr or proc.stdout).strip())
     try:
         hits = json.loads(proc.stdout)
     except ValueError:

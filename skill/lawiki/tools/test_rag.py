@@ -84,33 +84,26 @@ class EnrichHitTests(unittest.TestCase):
 
 
 class ModelStatusTests(unittest.TestCase):
+    # stats supplies BOTH index-time and live query model; wrapper only compares.
     def test_ok_when_models_match(self):
-        ok, _ = rag.model_status(
-            {"backend": "local", "model": "m"}, "local", "m")
+        ok, _ = rag.model_status({
+            "index_backend": "local", "index_model": "m",
+            "query_backend": "local", "query_model": "m"})
         self.assertTrue(ok)
 
-    def test_not_indexed_when_model_none(self):
-        ok, reason = rag.model_status({"backend": None, "model": None}, "local", "m")
+    def test_not_indexed_when_index_model_none(self):
+        ok, reason = rag.model_status({
+            "index_backend": None, "index_model": None,
+            "query_backend": "local", "query_model": "m"})
         self.assertFalse(ok)
         self.assertIn("索引", reason)
 
     def test_mismatch_detected(self):
-        ok, reason = rag.model_status(
-            {"backend": "local", "model": "old"}, "ollama", "new")
+        ok, reason = rag.model_status({
+            "index_backend": "local", "index_model": "old",
+            "query_backend": "ollama", "query_model": "new"})
         self.assertFalse(ok)
         self.assertIn("不一致", reason)
-
-
-class CurrentModelTests(unittest.TestCase):
-    def test_default_local(self):
-        backend, model = rag.current_model(env={})
-        self.assertEqual(backend, "local")
-        self.assertEqual(model, "BAAI/bge-small-zh-v1.5")
-
-    def test_env_override(self):
-        backend, model = rag.current_model(
-            env={"RAG_EMBED_BACKEND": "ollama"})
-        self.assertEqual((backend, model), ("ollama", "bge-m3"))
 
 
 if __name__ == "__main__":
