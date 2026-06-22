@@ -1,6 +1,8 @@
 # lawiki 扩展设计:RAG + 交叉验证问答
 
-状态：设计已定稿，待实现。分支 `feat/rag-qa-extension`。
+状态：**已实现并端到端验证**。分支 `feat/rag-qa-extension`（lawiki）+ `feat/lawiki-adaptations`（rag-retriever）。
+
+> **落地小结（2026-06-21）**：① rag-retriever 本体加齐五项通用能力（`--source-root` 相对 POSIX 路径 / `--data-dir` / `search --json` / 通用 frontmatter 透传 / 索引模型持久化 + `stats` 报索引时模型）+ UTF-8 stdout 修复，12 个 pytest 全绿。② lawiki 加 `tools/rag.py` 薄 wrapper（subprocess 调 CLI、不 import、不用 MCP）承担五职责，11 个 stdlib unittest 全绿（含「wrapper 锚点过真实 lint」）。③ `references/qa.md`（四情形协议）+ `rag.md` + `setup.md`（RAG 安装/后端/一致性）+ `SKILL.md`（索引步、问答小节、触发词）。④ 合成四情形案件实测：index→search 返回带相对锚点 + quality 的证据；`lint check` 锚点有效且覆盖率警告抓出漏引的冲突源；`lint extract` 抽出失真断言供交叉验证。修掉一个真 bug：默认锚片段原为多行（含 frontmatter），lint 单行正则会静默漏检 → 改为单行去 frontmatter 片段（先写复现测试）。
 
 > **架构锐化（2026-06-21 修订）**：在初稿基础上钉死了 lawiki ↔ rag-retriever 的**集成边界**——两者用 **CLI/JSON 契约**连接（与 makeitdown 对称），lawiki 经一个**薄 wrapper `tools/rag.py`（subprocess 调 CLI，不 import 其 Python、不用其 MCP server）**单点消费。并给出**功能切分判据**（第 3 节）、把初稿"存 quality"修正为**通用 frontmatter 字段透传**、补上**索引模型持久化 + `stats --json`**（一致性校验的依据）与**冷启动延迟**的取舍说明。受影响的主要是第 3、7、8 节。
 
