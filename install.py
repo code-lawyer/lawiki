@@ -40,8 +40,12 @@ def _have(cmd: str) -> bool:
 
 
 def _uv_install(spec: str, dry: bool) -> bool:
-    """uv tool install <spec>（走清华源加速）。返回是否成功。"""
-    cmd = ["uv", "tool", "install", "--index", TSINGHUA, spec]
+    """uv tool install <spec>（钉 Python 3.12、走清华源加速）。返回是否成功。
+
+    --python 3.12 同时满足三方约束：makeitdown(>=3.11,<3.13)、rag-retriever(>=3.10)、
+    lawiki lint(>=3.11)；不钉则在 3.13+ 默认机器上 makeitdown 会装失败。
+    """
+    cmd = ["uv", "tool", "install", "--python", "3.12", "--index", TSINGHUA, spec]
     _say("将执行: " + " ".join(cmd))
     if dry:
         return True

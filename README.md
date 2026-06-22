@@ -14,7 +14,7 @@
 
 ## 上游依赖
 
-[makeitdown](https://gitee.com/code-lawyer/makeitdown)（独立工具）：把各式文件转成 LLM 可读的 md。lawiki 通过其稳定输出契约（frontmatter 的 `source` / `quality: suspect` 等）对接。
+[makeitdown](https://github.com/code-lawyer/makeitdown)（独立工具）：把各式文件转成 LLM 可读的 md。lawiki 通过其稳定输出契约（frontmatter 的 `source` / `quality: suspect` 等）对接。
 
 ## 首次使用（自动配环境）
 

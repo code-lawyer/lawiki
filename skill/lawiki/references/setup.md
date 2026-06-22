@@ -55,15 +55,16 @@ PADDLEOCR_AISTUDIO_TOKEN=<你的token>
 
 - **本地版**：
   ```
-  uv tool install --python 3.11 --index https://pypi.tuna.tsinghua.edu.cn/simple "makeitdown[local] @ git+https://gitee.com/code-lawyer/makeitdown.git"
+  uv tool install --python 3.12 --index https://pypi.tuna.tsinghua.edu.cn/simple "makeitdown[local] @ git+https://github.com/code-lawyer/makeitdown.git"
   ```
 - **云端版**：
   ```
-  uv tool install --python 3.11 --index https://pypi.tuna.tsinghua.edu.cn/simple "makeitdown @ git+https://gitee.com/code-lawyer/makeitdown.git"
+  uv tool install --python 3.12 --index https://pypi.tuna.tsinghua.edu.cn/simple "makeitdown @ git+https://github.com/code-lawyer/makeitdown.git"
   ```
 - **缺 Python / uv**：先装 uv（Windows：`winget install astral-sh.uv`；macOS/Linux：`curl -LsSf https://astral.sh/uv/install.sh | sh`），uv 能顺带备好 Python。装系统软件可能要权限——装不动就把命令交给用户自己跑，别硬来。
 - **本 skill 的校验（lint）**：零依赖，只要有 Python 即可，**无需安装**。
-- **海外用户**：去掉 `--index` 参数，把 `gitee.com` 换成 `github.com`。
+- `--python 3.12` 不可省：makeitdown 要求 `>=3.11,<3.13`，默认 3.13+ 的机器不钉版本会装失败。
+- `--index 清华源` 仅为大陆加速依赖下载；海外可去掉。git 源已用 GitHub。
 
 装完用 `makeitdown --help` 验证；提示用户命令找不到时跑 `uv tool update-shell` 后开新终端。
 
@@ -71,11 +72,11 @@ PADDLEOCR_AISTUDIO_TOKEN=<你的token>
 
 支撑交叉验证问答。装与不装都行——不装则问答退化「仅 wiki」，核心（wiki + lint）零依赖不受影响。细节见 `rag.md`。
 
-**装 rag-retriever**（让 `rag-retriever` 进 PATH；大陆走清华源）：
+**装 rag-retriever**（让 `rag-retriever` 进 PATH；大陆走清华源加速依赖）：
 ```
-uv tool install --python 3.11 --index https://pypi.tuna.tsinghua.edu.cn/simple "rag-retriever @ git+https://gitee.com/code-lawyer/rag-retriever.git"
+uv tool install --python 3.12 --index https://pypi.tuna.tsinghua.edu.cn/simple "rag-retriever @ git+https://github.com/code-lawyer/rag-retriever.git"
 ```
-（开发期也可不装、用环境变量 `LAWIKI_RAG_CMD='uv run --project "<本地路径>" rag-retriever'` 指向本地仓库，见 `rag.md`。海外用户去掉 `--index`、换 `github.com`。）
+（开发期也可不装、用环境变量 `LAWIKI_RAG_CMD='uv run --project "<本地路径>" rag-retriever'` 指向本地仓库，见 `rag.md`。海外可去掉 `--index`。）
 
 **选 embedding 后端**（与 OCR 同样的「本地 vs 云端」权衡，把这张给用户选）：
 
