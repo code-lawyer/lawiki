@@ -4,7 +4,41 @@ ingest 写页时照此格式。来源锚点、三类标注见 SKILL.md 主干；
 
 ## 脚手架初始内容
 
-新建案件时 `wiki/` 下放这两个文件的初始内容：
+新建案件时：① 在**案件根目录**放 `AGENTS.md`（自描述标记，见下）；② 在 `wiki/` 下放 `index.md`、`log.md` 的初始内容。
+
+### 案件根 `AGENTS.md`（自描述标记）
+
+让任何 agent/人**重新打开案件文件夹**时，无需上下文即懂"这是什么、怎么续作"。内容静态（与具体案件无关），照抄即可（`<SKILL_DIR>` 留作字面，或填实际 skill 路径）：
+
+```markdown
+# 本目录是一个 lawiki 法律案件库
+
+由 lawiki skill 构建与维护。任何 agent 或人打开本目录，请按以下约定理解与续作。
+**勿手动修改 `原始资料/` 与 `_md/`。**
+
+## 结构（前三层不可变，只写 wiki/）
+- `原始资料/` 用户原件，真相之源，永不修改
+- `_md/`      makeitdown 转换产物，来源层，永不修改
+- `wiki/`     已综合、可溯源的案件 wiki（人读 + agent 读）
+- `.rag/`     从 `_md/` 派生的向量库，隐藏、可重建、可删
+
+## 续作方式
+1. 加载 lawiki skill（Claude Code/Copilot 按其 SKILL.md 自动识别；Codex 等把 skill 内容作系统指令）。
+2. 新增资料：放进 `原始资料/` → 转换出 `_md/` → 索引 `.rag/` → ingest 进 `wiki/` → 跑 lint 校验。
+3. 提问：用 wiki 已综合结论 + RAG 原文双路交叉验证作答（见 skill 的 qa.md）。
+
+## 铁律（不可违反，全文见 skill）
+- 每句事实挂逐字来源锚点 `〔来源: _md/…：「逐字原文」〕`；挂不上锚点的不许当事实写。
+- 三类标注：EXTRACTED（原文直取，挂锚点）/ INFERRED（分析，标 `> [!note] 分析`）/ AMBIGUOUS（存疑·冲突·未核验，显式标）。
+- 来源不可变；矛盾只暴露不私自调和；要害（日期/金额/姓名/条款）逐字照录。
+
+## 校验
+`python <SKILL_DIR>/lint/lint.py check <本目录>` → 修到 0 违规。
+```
+
+> Claude Code 若希望打开案件目录时**自动**载入本说明，可把 `AGENTS.md` 另存一份为 `CLAUDE.md`（内容相同）。保持单一来源时以 `AGENTS.md` 为准。
+
+### `wiki/` 初始文件
 
 `index.md`：
 ```markdown

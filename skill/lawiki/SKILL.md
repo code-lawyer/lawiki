@@ -39,7 +39,7 @@ wiki/
   index.md   log.md   案件主体/   法律关系/   法律事实/   时间线/
 ```
 
-并确保案件目录下有 `原始资料/` 与 `_md/`。`index.md`/`log.md` 的初始内容见 `references/page-formats.md`。
+并确保案件目录下有 `原始资料/` 与 `_md/`。同时在**案件根目录**写一份 `AGENTS.md`（自描述标记，让任何 agent/人重新打开本文件夹即懂"这是什么、怎么续作"）。`AGENTS.md`、`index.md`、`log.md` 的初始内容均见 `references/page-formats.md`。
 
 ## 第二步：转换（调 makeitdown）
 
