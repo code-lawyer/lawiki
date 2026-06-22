@@ -4,6 +4,8 @@
 _md/
 案件/
 *案件*/
+.rag/
+_smoke/
 
 # lint 临时输出与 python 缓存
 .lint_out.txt
