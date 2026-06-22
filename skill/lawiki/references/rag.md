@@ -60,8 +60,8 @@ python <SKILL_DIR>/tools/rag.py search <案件根> "<问题>" -k 8
 ## embedding 模型一致性（铁规）
 
 索引与查询**必须同一 embedding 模型**，否则相似度失真。机制：
-- `rag-retriever` 索引时把模型写进 `.rag/`（`index_meta.json`），`stats` 报**索引时**模型。
-- wrapper `search` 先比对 `stats` 的索引时模型与当前查询模型（读 `RAG_EMBED_BACKEND`/`RAG_EMBED_MODEL`，回退默认）——不一致即降级，提示 rebuild。
+- `rag-retriever` 索引时把模型写进 `.rag/`（`index_meta.json`）；`stats` **同时报索引时模型与当前查询模型**（后者由 rag-retriever 自己的 config 解析，wrapper 不再镜像其默认表）。
+- wrapper `search` 只比对 `stats` 给的这两组模型——不一致即降级，提示 rebuild。
 - 换模型 → 删 `.rag/` 重新 `index`。
 
 ## 调用方式（`LAWIKI_RAG_CMD`）
