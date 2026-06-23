@@ -117,6 +117,7 @@ def index_case(case: Path) -> dict:
     proc = _run_rag(data_dir, [
         "index", str(md_dir), "--source-root", str(case),
         "--metadata-fields", _METADATA_FIELDS,
+        "--exclude", "report.json",  # makeitdown 的台账，非源文，别进 RAG
     ])
     if proc is None:
         return {"ok": False, "reason": "未安装 rag-retriever（或不在 PATH / LAWIKI_RAG_CMD）"}
