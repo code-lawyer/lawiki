@@ -19,7 +19,12 @@
    ```
    得到原始 `_md/` 片段 + 相对路径 + 逐字 `text` + `score` + `quality` + 现成 `anchor`。
    - `k≥8` 防假冲突：先凑够上下文再判，别把「RAG 没检索到」误判成「矛盾」。
-   - 若返回 `rag_available:false` → 跳到「仅 wiki」降级（见末节）。
+   - 若返回 `rag_available:false` → 用结构路兜底（见 3），仍不行才退「仅 wiki」。
+3. **结构路（对抗遗漏，similarity ≠ relevance）**：
+   ```
+   python <SKILL_DIR>/tools/outline.py <案件根>
+   ```
+   得到每份 `_md/` 的标题树。**当问题措辞与原文用词不同**（如问「违约责任」而合同写「第八条 责任」），向量可能漏——按 outline 直接导航到相关文件的相关章节，定位后读该节原文取证、拼锚点。**RAG 不可用时，outline 即降级检索路径**（纯结构、零依赖，始终可用）。
 
 ## 第二步 · 比对，四情形分流
 

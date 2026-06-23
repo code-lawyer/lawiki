@@ -7,7 +7,7 @@ description: Use when building, maintaining, OR answering questions about a Chin
 
 把一个案件的原始资料整合成**可控、可溯源**的 wiki。你（agent）负责全部归档与维护。法律工作不接受模糊和混乱——下面的**铁律（三类标注 + 逐字锚点硬底线）不可违反**。
 
-细节按需读本 skill 的 `references/`（`setup.md` 首次配环境、`page-formats.md` 页面格式+Obsidian 约定、`verification.md` 校验、`rag.md` RAG 索引检索、`qa.md` 案件问答协议）；不必一次全装进注意力。`<SKILL_DIR>` 指本 skill 实际所在目录。
+细节按需读本 skill 的 `references/`（`setup.md` 首次配环境、`page-formats.md` 页面格式+Obsidian 约定、`verification.md` 校验、`rag.md` RAG 索引检索、`qa.md` 案件问答协议）；不必一次全装进注意力。工具在 `tools/`：`rag.py`（RAG 包装）、`outline.py`（`_md` 标题树导航，零依赖、对抗遗漏、亦作无 RAG 降级）。`<SKILL_DIR>` 指本 skill 实际所在目录。
 
 ## 何时用 / 怎么激活
 
